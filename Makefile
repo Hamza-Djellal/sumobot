@@ -1,6 +1,6 @@
 #Directories
 
-MSPGCC_ROOT_DIR = /home/hamza/dev/tools/msp430-elf-gcc
+MSPGCC_ROOT_DIR = /home/hamza/dev/tools/msp430-gcc
 MSPGCC_BIN_DIR = $(MSPGCC_ROOT_DIR)/bin
 MSPGCC_INCLUDE_DIR = $(MSPGCC_ROOT_DIR)/include
 INCLUDE_DIRS = $(MSPGCC_INCLUDE_DIR)
@@ -49,4 +49,5 @@ cppcheck:
 	@$(CPPCHECK) --quiet --enable=all \
 	 --error-exitcode=1 --inline-suppr \
 	 -I $(INCLUDE_DIRS) \
+	 --suppress=checkersReport \
 	$(SOURCES)
