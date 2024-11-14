@@ -1,53 +1,81 @@
-#Directories
-
-MSPGCC_ROOT_DIR = /home/hamza/dev/tools/msp430-gcc
+# Directories
+TOOLS_DIR = /home/hamza/dev/tools
+MSPGCC_ROOT_DIR = $(TOOLS_DIR)/msp430-gcc
 MSPGCC_BIN_DIR = $(MSPGCC_ROOT_DIR)/bin
 MSPGCC_INCLUDE_DIR = $(MSPGCC_ROOT_DIR)/include
-INCLUDE_DIRS = $(MSPGCC_INCLUDE_DIR)
-BIN_DIRS = $(MSPGCC_BIN_DIR)
-
-#toolchain 
-CC = $(BIN_DIRS)/msp430-elf-gcc
-
-#FLAGS
-MCU = msp430g2253
-WFLAGS = -Wall -Wextra -Werror -Wshadow -Wdouble-promotion
-CFLAGS = -mmcu=$(MCU) $(WFLAGS) $(addprefix -I, $(INCLUDE_DIRS)) -Og -g
-LDFLAGS = -mmcu=$(MCU) $(addprefix -L, $(INCLUDE_DIRS))
 BUILD_DIR = build
 OBJ_DIR = $(BUILD_DIR)/obj
-BIN_DIR = $(BUILD_DIR)/bin
+
+LIB_DIRS = $(MSPGCC_INCLUDE_DIR)
+INCLUDE_DIRS = $(MSPGCC_INCLUDE_DIR) \
+			   ./src \
+			   ./external/ \
+			   ./
+
+# Toolchain
+CC = $(MSPGCC_BIN_DIR)/msp430-elf-gcc
+RM = rm
 CPPCHECK = cppcheck
 
-#Files
-TARGET= $(BIN_DIR)/blink
-SOURCES = src/app/main.c src/app/led.c
+# Files
+TARGET = $(BUILD_DIR)/bin/sumbot
 
-#Objects
-OBJECTS_NAMES = $(SOURCES:.c=.o)
-OBJECTS = $(addprefix $(OBJ_DIR)/, $(OBJECTS_NAMES))
+SOURCES_WITH_HEADERS = \
+		src/drivers/io.c \
 
-#Build
-##Link
-$(TARGET):$(OBJECTS)
+SOURCES = \
+		src/main.c \
+		$(SOURCES_WITH_HEADERS)
+
+HEADERS = \
+		$(SOURCES_WITH_HEADERS:.c=.h) \
+		src/common/defines.h
+
+OBJECT_NAMES = $(SOURCES:.c=.o)
+OBJECTS = $(patsubst %,$(OBJ_DIR)/%,$(OBJECT_NAMES))
+
+
+
+# Static Analysis
+## Don't check the msp430 helper headers (they have a LOT of ifdefs)
+CPPCHECK_INCLUDES = ./src ./
+IGNORE_FILES_FORMAT_CPPCHECK = \
+	external/printf/printf.h \
+	external/printf/printf.c
+CPPCHECK_FLAGS = \
+	--quiet --enable=all --error-exitcode=1 \
+	--inline-suppr \
+	--suppress=missingIncludeSystem \
+	--suppress=unmatchedSuppression \
+	--suppress=unusedFunction \
+	--suppress=checkersReport \
+	$(addprefix -I,$(CPPCHECK_INCLUDES)) \
+
+# Flags
+MCU = msp430g2553
+WFLAGS = -Wall -Wextra -Werror -Wshadow
+CFLAGS = -mmcu=$(MCU) $(WFLAGS) -fshort-enums $(addprefix -I,$(INCLUDE_DIRS)) $(DEFINES) -Og -g
+LDFLAGS = -mmcu=$(MCU) $(DEFINES) $(addprefix -L,$(LIB_DIRS)) $(addprefix -I,$(INCLUDE_DIRS))
+
+# Build
+## Linking
+$(TARGET): $(OBJECTS) $(HEADERS)
+	echo $(OBJECTS)
 	@mkdir -p $(dir $@)
-	$(CC) $(LDFLAGS) -o $@ $^
+	$(CC) $(LDFLAGS) $^ -o $@
 
-##Compile
+## Compiling
 $(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c -o $@ $^
 
+# Phonies
+.PHONY: all clean cppcheck 
 
-.PHONY:all clean cppcheck
+all: $(TARGET)
 
-all:$(TARGET)
+clean:
+	@$(RM) -rf $(BUILD_DIR)
 
-clean:	
-	@rm -rf $(BUILD_DIR)/
 cppcheck:
-	@$(CPPCHECK) --quiet --enable=all \
-	 --error-exitcode=1 --inline-suppr \
-	 -I $(INCLUDE_DIRS) \
-	 --suppress=checkersReport \
-	$(SOURCES)
+	@$(CPPCHECK) $(CPPCHECK_FLAGS) $(SOURCES)
